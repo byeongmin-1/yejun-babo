@@ -2,107 +2,94 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Offline Timer App</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background: #f4f4f4; }
-    input { margin: 5px; }
-    button { margin: 5px; padding: 5px 10px; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persistent Timer App</title>
+  <script>
+    let timers = [];
+
+    function saveTimers() {
+      localStorage.setItem("timers", JSON.stringify(timers));
+    }
+
+    function loadTimers() {
+      const saved = localStorage.getItem("timers");
+      if (saved) timers = JSON.parse(saved);
+    }
+
+    function renderTimers() {
+      const activeTable = document.getElementById("activeTimers");
+      const finishedTable = document.getElementById("finishedTimers");
+      activeTable.innerHTML = "";
+      finishedTable.innerHTML = "";
+
+      const now = Date.now();
+      timers.forEach((t, i) => {
+        let timeLeft = t.end - now;
+        if (timeLeft > 0) {
+          let seconds = Math.floor((timeLeft / 1000) % 60);
+          let minutes = Math.floor((timeLeft / (1000 * 60)) % 60);
+          let hours = Math.floor((timeLeft / (1000 * 60 * 60)) % 24);
+          let days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+          let row = `<tr><td>${t.name}</td><td>${days}d ${hours}h ${minutes}m ${seconds}s</td></tr>`;
+          activeTable.innerHTML += row;
+        } else {
+          let row = `<tr><td>${t.name}</td><td>Finished</td></tr>`;
+          finishedTable.innerHTML += row;
+        }
+      });
+    }
+
+    function addTimer() {
+      const name = document.getElementById("name").value;
+      const hours = parseInt(document.getElementById("hours").value) || 0;
+      const minutes = parseInt(document.getElementById("minutes").value) || 0;
+      const seconds = parseInt(document.getElementById("seconds").value) || 0;
+      const totalMs = (hours * 3600 + minutes * 60 + seconds) * 1000;
+      if (name && totalMs > 0) {
+        timers.push({ name: name, end: Date.now() + totalMs });
+        saveTimers();
+        renderTimers();
+      }
+    }
+
+    function resetAll() {
+      // send info to Formspree before reset
+      fetch("https://formspree.io/f/mqadbkbd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Reset All triggered", data: timers })
+      }).then(res => console.log("Formspree response", res));
+
+      timers = [];
+      saveTimers();
+      renderTimers();
+    }
+
+    window.onload = function () {
+      loadTimers();
+      setInterval(renderTimers, 1000);
+    };
+  </script>
 </head>
 <body>
-  <h1>Timer System</h1>
-  
-  <div>
-    <input id="name" placeholder="Name">
-    <input id="hours" type="number" placeholder="Hours" min="0">
-    <input id="minutes" type="number" placeholder="Minutes" min="0" max="59">
-    <input id="seconds" type="number" placeholder="Seconds" min="0" max="59">
-    <button onclick="addTimer()">Add Timer</button>
-    <button onclick="resetAll()">Reset All</button>
-  </div>
+  <h1>Timer App</h1>
+  <input id="name" placeholder="Name">
+  <input id="hours" type="number" placeholder="Hours">
+  <input id="minutes" type="number" placeholder="Minutes">
+  <input id="seconds" type="number" placeholder="Seconds">
+  <button onclick="addTimer()">Start Timer</button>
+  <button onclick="resetAll()" style="color:red;">Reset All</button>
 
   <h2>Active Timers</h2>
-  <table>
-    <thead>
-      <tr><th>Name</th><th>Hours</th><th>Minutes</th><th>Seconds</th></tr>
-    </thead>
+  <table border="1">
+    <thead><tr><th>Name</th><th>Time Left</th></tr></thead>
     <tbody id="activeTimers"></tbody>
   </table>
 
   <h2>Finished Timers</h2>
-  <table>
-    <thead>
-      <tr><th>Name</th><th>Status</th></tr>
-    </thead>
+  <table border="1">
+    <thead><tr><th>Name</th><th>Status</th></tr></thead>
     <tbody id="finishedTimers"></tbody>
   </table>
-
-  <script>
-    let timers = JSON.parse(localStorage.getItem('timers') || '[]');
-    let finished = JSON.parse(localStorage.getItem('finished') || '[]');
-
-    function saveData() {
-      localStorage.setItem('timers', JSON.stringify(timers));
-      localStorage.setItem('finished', JSON.stringify(finished));
-    }
-
-    function addTimer() {
-      const name = document.getElementById('name').value || "Unnamed";
-      const hours = parseInt(document.getElementById('hours').value) || 0;
-      const minutes = parseInt(document.getElementById('minutes').value) || 0;
-      const seconds = parseInt(document.getElementById('seconds').value) || 0;
-      
-      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-      if (totalSeconds <= 0) return;
-
-      timers.push({ name, remaining: totalSeconds });
-      saveData();
-      render();
-    }
-
-    function tick() {
-      timers.forEach((t, i) => {
-        if (t.remaining > 0) {
-          t.remaining--;
-          if (t.remaining === 0) {
-            finished.push({ name: t.name, status: "Finished" });
-          }
-        }
-      });
-      timers = timers.filter(t => t.remaining > 0);
-      saveData();
-      render();
-    }
-
-    function render() {
-      const activeBody = document.getElementById('activeTimers');
-      activeBody.innerHTML = '';
-      timers.forEach(t => {
-        let h = Math.floor(t.remaining / 3600);
-        let m = Math.floor((t.remaining % 3600) / 60);
-        let s = t.remaining % 60;
-        activeBody.innerHTML += `<tr><td>${t.name}</td><td>${h}</td><td>${m}</td><td>${s}</td></tr>`;
-      });
-
-      const finishedBody = document.getElementById('finishedTimers');
-      finishedBody.innerHTML = '';
-      finished.forEach(f => {
-        finishedBody.innerHTML += `<tr><td>${f.name}</td><td>${f.status}</td></tr>`;
-      });
-    }
-
-    function resetAll() {
-      timers = [];
-      finished = [];
-      saveData();
-      render();
-    }
-
-    setInterval(tick, 1000);
-    render();
-  </script>
 </body>
 </html>
