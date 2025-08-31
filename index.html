@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Timer List App</title>
+<title>Offline Persistent Timer App</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 20px; }
   table { border-collapse: collapse; width: 100%; margin-top: 10px; }
@@ -63,6 +63,24 @@ let activeTimers = [];
 let finishedTimers = [];
 let historyTimers = [];
 
+// ---- LocalStorage Handling ----
+function saveData() {
+  localStorage.setItem("activeTimers", JSON.stringify(activeTimers));
+  localStorage.setItem("finishedTimers", JSON.stringify(finishedTimers));
+  localStorage.setItem("historyTimers", JSON.stringify(historyTimers));
+}
+
+function loadData() {
+  activeTimers = JSON.parse(localStorage.getItem("activeTimers")) || [];
+  finishedTimers = JSON.parse(localStorage.getItem("finishedTimers")) || [];
+  historyTimers = JSON.parse(localStorage.getItem("historyTimers")) || [];
+
+  updateActiveTable();
+  updateFinishedTable();
+  updateHistoryTable();
+}
+
+// ---- Timer Functions ----
 function addTimer() {
   const name = document.getElementById("nameInput").value.trim();
   const hours = parseInt(document.getElementById("hoursInput").value) || 0;
@@ -81,14 +99,17 @@ function addTimer() {
   }
 
   const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+  const startTime = Date.now();
+  const endTime = startTime + totalSeconds * 1000;
 
-  activeTimers.push({ name, timeLeft: totalSeconds });
-  historyTimers.push({ name, startedAt: new Date() });
+  activeTimers.push({ name, endTime });
+  historyTimers.push({ name, startedAt: startTime });
 
   updateActiveTable();
   updateHistoryTable();
+  saveData();
 
-  // clear input fields
+  // clear inputs
   document.getElementById("nameInput").value = "";
   document.getElementById("hoursInput").value = "";
   document.getElementById("minutesInput").value = "";
@@ -100,11 +121,12 @@ function updateActiveTable() {
   tbody.innerHTML = "";
 
   activeTimers.forEach(timer => {
+    const timeLeft = Math.max(0, Math.floor((timer.endTime - Date.now()) / 1000));
     const tr = document.createElement("tr");
     const tdName = document.createElement("td");
     tdName.textContent = timer.name;
     const tdTime = document.createElement("td");
-    tdTime.textContent = formatTime(timer.timeLeft);
+    tdTime.textContent = formatTime(timeLeft);
     tr.appendChild(tdName);
     tr.appendChild(tdTime);
     tbody.appendChild(tr);
@@ -120,7 +142,7 @@ function updateFinishedTable() {
     const tdName = document.createElement("td");
     tdName.textContent = timer.name;
     const tdTime = document.createElement("td");
-    tdTime.textContent = timer.finishedAt.toLocaleString();
+    tdTime.textContent = new Date(timer.finishedAt).toLocaleString();
     tr.appendChild(tdName);
     tr.appendChild(tdTime);
     tbody.appendChild(tr);
@@ -136,7 +158,7 @@ function updateHistoryTable() {
     const tdName = document.createElement("td");
     tdName.textContent = timer.name;
     const tdTime = document.createElement("td");
-    tdTime.textContent = timer.startedAt.toLocaleString();
+    tdTime.textContent = new Date(timer.startedAt).toLocaleString();
     tr.appendChild(tdName);
     tr.appendChild(tdTime);
     tbody.appendChild(tr);
@@ -150,20 +172,25 @@ function formatTime(seconds) {
   return `${h}h ${m}m ${s}s`;
 }
 
-// Countdown every second
+// ---- Countdown ----
 setInterval(() => {
-  activeTimers.forEach((timer, index) => {
-    if (timer.timeLeft > 0) {
-      timer.timeLeft--;
-    } else {
-      // move to finished list
-      finishedTimers.push({ name: timer.name, finishedAt: new Date() });
-      activeTimers.splice(index, 1);
+  const now = Date.now();
+  activeTimers = activeTimers.filter(timer => {
+    const timeLeft = Math.floor((timer.endTime - now) / 1000);
+    if (timeLeft <= 0) {
+      finishedTimers.push({ name: timer.name, finishedAt: now });
+      return false; // remove from active
     }
+    return true;
   });
+
   updateActiveTable();
   updateFinishedTable();
+  saveData();
 }, 1000);
+
+// Load saved data when page opens
+loadData();
 </script>
 
 </body>
