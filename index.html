@@ -1,197 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Offline Persistent Timer App</title>
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-  th, td { border: 1px solid #000; padding: 8px; text-align: center; }
-  th { background-color: #f2f2f2; }
-  input { margin: 5px; }
-  h3 { margin-top: 30px; }
-</style>
+  <meta charset="UTF-8">
+  <title>Persistent Timer App</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f4f4f4; }
+  </style>
 </head>
 <body>
+  <h1>Timer App</h1>
+  <label>Name: <input id="nameInput" type="text"></label>
+  <label>Duration (seconds): <input id="durationInput" type="number"></label>
+  <button onclick="addTimer()">Add Timer</button>
 
-<h2>Timer List</h2>
+  <h2>Active Timers</h2>
+  <table id="activeTable">
+    <tr><th>Name</th><th>Time Left</th></tr>
+  </table>
 
-<div>
-  <input type="text" id="nameInput" placeholder="Name">
-  <input type="number" id="hoursInput" placeholder="Hours" min="0" max="87600"> 
-  <input type="number" id="minutesInput" placeholder="Minutes" min="0" max="59">
-  <input type="number" id="secondsInput" placeholder="Seconds" min="0" max="59">
-  <button onclick="addTimer()">Start Timer</button>
-</div>
+  <h2>Finished Timers</h2>
+  <table id="finishedTable">
+    <tr><th>Name</th><th>Status</th></tr>
+  </table>
 
-<h3>Active Timers</h3>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Time Left</th>
-    </tr>
-  </thead>
-  <tbody id="activeTimersBody"></tbody>
-</table>
+  <script>
+    let timers = [];
 
-<h3>Finished Timers</h3>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Finished At</th>
-    </tr>
-  </thead>
-  <tbody id="finishedTimersBody"></tbody>
-</table>
-
-<h3>Started Timers (History)</h3>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Time Started</th>
-    </tr>
-  </thead>
-  <tbody id="historyBody"></tbody>
-</table>
-
-<script>
-let activeTimers = [];
-let finishedTimers = [];
-let historyTimers = [];
-
-// ---- LocalStorage Handling ----
-function saveData() {
-  localStorage.setItem("activeTimers", JSON.stringify(activeTimers));
-  localStorage.setItem("finishedTimers", JSON.stringify(finishedTimers));
-  localStorage.setItem("historyTimers", JSON.stringify(historyTimers));
-}
-
-function loadData() {
-  activeTimers = JSON.parse(localStorage.getItem("activeTimers")) || [];
-  finishedTimers = JSON.parse(localStorage.getItem("finishedTimers")) || [];
-  historyTimers = JSON.parse(localStorage.getItem("historyTimers")) || [];
-
-  updateActiveTable();
-  updateFinishedTable();
-  updateHistoryTable();
-}
-
-// ---- Timer Functions ----
-function addTimer() {
-  const name = document.getElementById("nameInput").value.trim();
-  const hours = parseInt(document.getElementById("hoursInput").value) || 0;
-  const minutes = parseInt(document.getElementById("minutesInput").value) || 0;
-  const seconds = parseInt(document.getElementById("secondsInput").value) || 0;
-
-  if (!name) {
-    alert("Please enter a name.");
-    return;
-  }
-
-  const maxHours = 10 * 365 * 24;
-  if (hours > maxHours) {
-    alert("Maximum timer is 10 years.");
-    return;
-  }
-
-  const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-  const startTime = Date.now();
-  const endTime = startTime + totalSeconds * 1000;
-
-  activeTimers.push({ name, endTime });
-  historyTimers.push({ name, startedAt: startTime });
-
-  updateActiveTable();
-  updateHistoryTable();
-  saveData();
-
-  // clear inputs
-  document.getElementById("nameInput").value = "";
-  document.getElementById("hoursInput").value = "";
-  document.getElementById("minutesInput").value = "";
-  document.getElementById("secondsInput").value = "";
-}
-
-function updateActiveTable() {
-  const tbody = document.getElementById("activeTimersBody");
-  tbody.innerHTML = "";
-
-  activeTimers.forEach(timer => {
-    const timeLeft = Math.max(0, Math.floor((timer.endTime - Date.now()) / 1000));
-    const tr = document.createElement("tr");
-    const tdName = document.createElement("td");
-    tdName.textContent = timer.name;
-    const tdTime = document.createElement("td");
-    tdTime.textContent = formatTime(timeLeft);
-    tr.appendChild(tdName);
-    tr.appendChild(tdTime);
-    tbody.appendChild(tr);
-  });
-}
-
-function updateFinishedTable() {
-  const tbody = document.getElementById("finishedTimersBody");
-  tbody.innerHTML = "";
-
-  finishedTimers.forEach(timer => {
-    const tr = document.createElement("tr");
-    const tdName = document.createElement("td");
-    tdName.textContent = timer.name;
-    const tdTime = document.createElement("td");
-    tdTime.textContent = new Date(timer.finishedAt).toLocaleString();
-    tr.appendChild(tdName);
-    tr.appendChild(tdTime);
-    tbody.appendChild(tr);
-  });
-}
-
-function updateHistoryTable() {
-  const tbody = document.getElementById("historyBody");
-  tbody.innerHTML = "";
-
-  historyTimers.forEach(timer => {
-    const tr = document.createElement("tr");
-    const tdName = document.createElement("td");
-    tdName.textContent = timer.name;
-    const tdTime = document.createElement("td");
-    tdTime.textContent = new Date(timer.startedAt).toLocaleString();
-    tr.appendChild(tdName);
-    tr.appendChild(tdTime);
-    tbody.appendChild(tr);
-  });
-}
-
-function formatTime(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return `${h}h ${m}m ${s}s`;
-}
-
-// ---- Countdown ----
-setInterval(() => {
-  const now = Date.now();
-  activeTimers = activeTimers.filter(timer => {
-    const timeLeft = Math.floor((timer.endTime - now) / 1000);
-    if (timeLeft <= 0) {
-      finishedTimers.push({ name: timer.name, finishedAt: now });
-      return false; // remove from active
+    function saveTimers() {
+      localStorage.setItem("timers", JSON.stringify(timers));
     }
-    return true;
-  });
 
-  updateActiveTable();
-  updateFinishedTable();
-  saveData();
-}, 1000);
+    function loadTimers() {
+      const saved = JSON.parse(localStorage.getItem("timers") || "[]");
+      const now = Date.now();
+      timers = saved.map(t => {
+        let remaining = t.endTime - now;
+        return {
+          name: t.name,
+          endTime: t.endTime,
+          finished: remaining <= 0
+        };
+      });
+    }
 
-// Load saved data when page opens
-loadData();
-</script>
+    function addTimer() {
+      const name = document.getElementById("nameInput").value.trim();
+      const duration = parseInt(document.getElementById("durationInput").value);
+      if (!name || isNaN(duration) || duration <= 0) return;
 
+      const endTime = Date.now() + duration * 1000;
+      timers.push({ name, endTime, finished: false });
+      saveTimers();
+      render();
+    }
+
+    function formatTime(ms) {
+      if (ms <= 0) return "00:00:00";
+      let totalSeconds = Math.floor(ms / 1000);
+      let h = Math.floor(totalSeconds / 3600);
+      let m = Math.floor((totalSeconds % 3600) / 60);
+      let s = totalSeconds % 60;
+      return [h, m, s].map(x => String(x).padStart(2, '0')).join(":");
+    }
+
+    function render() {
+      const now = Date.now();
+      const activeTable = document.getElementById("activeTable");
+      const finishedTable = document.getElementById("finishedTable");
+
+      activeTable.innerHTML = "<tr><th>Name</th><th>Time Left</th></tr>";
+      finishedTable.innerHTML = "<tr><th>Name</th><th>Status</th></tr>";
+
+      timers.forEach(t => {
+        let remaining = t.endTime - now;
+        if (remaining > 0 && !t.finished) {
+          const row = activeTable.insertRow();
+          row.insertCell().innerText = t.name;
+          row.insertCell().innerText = formatTime(remaining);
+        } else {
+          t.finished = true;
+          const row = finishedTable.insertRow();
+          row.insertCell().innerText = t.name;
+          row.insertCell().innerText = "Finished";
+        }
+      });
+      saveTimers();
+    }
+
+    setInterval(render, 1000);
+
+    loadTimers();
+    render();
+  </script>
 </body>
 </html>
