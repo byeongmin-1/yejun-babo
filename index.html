@@ -92,25 +92,34 @@
 
     function updateTimers() {
       const now = Date.now();
-      timers = timers.filter(t => {
+      let changed = false;
+      let stillActive = [];
+      timers.forEach(t => {
         let remaining = calculateRemaining(t);
         if (remaining <= 0) {
-          // Move to finished
-          finished.push({
-            name: t.name,
-            startTime: t.startTime,
-            endTime: t.startTime + (t.duration * 1000),
-            duration: t.duration
-          });
-          return false; // remove from active
+          // Move to finished only if not already moved
+          if (!finished.some(f => f.name === t.name && f.startTime === t.startTime)) {
+            finished.push({
+              name: t.name,
+              startTime: t.startTime,
+              endTime: t.startTime + (t.duration * 1000),
+              duration: t.duration
+            });
+            changed = true;
+          }
+        } else {
+          stillActive.push(t);
         }
-        return true; // keep active
       });
-      saveData();
+      if (changed || stillActive.length !== timers.length) {
+        timers = stillActive;
+        saveData();
+      }
     }
 
     function render() {
       updateTimers();
+
       const activeBody = document.getElementById('activeTimers');
       activeBody.innerHTML = '';
       timers.forEach(t => {
@@ -136,7 +145,7 @@
     }
 
     function resetAll() {
-      updateTimers(); // Ensure finished is up-to-date before reset
+      updateTimers();
 
       let message = "Timers have been reset.\n\nActive Timers:\n";
       if (timers.length === 0) {
@@ -185,7 +194,7 @@
       render();
     }
 
-    setInterval(() => render(), 1000); // UI refresh every second
+    setInterval(render, 1000);
     render();
   </script>
 </body>
