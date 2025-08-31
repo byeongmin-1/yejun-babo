@@ -43,10 +43,13 @@
   <script>
     let timers = JSON.parse(localStorage.getItem('timers') || '[]');
     let finished = JSON.parse(localStorage.getItem('finished') || '[]');
+    let lastSaved = Number(localStorage.getItem('lastSaved') || Date.now());
 
     function saveData() {
       localStorage.setItem('timers', JSON.stringify(timers));
       localStorage.setItem('finished', JSON.stringify(finished));
+      lastSaved = Date.now();
+      localStorage.setItem('lastSaved', String(lastSaved));
     }
 
     function formatTime(date) {
@@ -78,8 +81,44 @@
       render();
     }
 
+    // 🔧 NEW: Rehydrate active timers after a refresh/close
+    function hydrateActiveTimersOnLoad() {
+      const now = Date.now();
+      const delta = Math.floor((now - lastSaved) / 1000); // seconds while page was closed
+      if (delta <= 0 || timers.length === 0) return;
+
+      const stillActive = [];
+      timers.forEach(t => {
+        // Adjust remaining by downtime
+        let newRemaining = Math.max(0, (t.remaining || 0) - delta);
+
+        if (newRemaining === 0) {
+          // Timer finished during downtime → move to finished (finished table logic unchanged)
+          // End time = when it would have ended based on last known state
+          const endTime = t.start ? (t.start + t.duration * 1000) : (lastSaved + (t.remaining || 0) * 1000);
+          // Avoid duplicates
+          const exists = finished.some(f => f.name === t.name && f.start === t.start);
+          if (!exists) {
+            finished.push({
+              name: t.name,
+              start: t.start || (now - (t.duration || 0) * 1000),
+              end: endTime,
+              duration: t.duration || (t.remaining || 0)
+            });
+          }
+        } else {
+          // Still running
+          t.remaining = newRemaining;
+          stillActive.push(t);
+        }
+      });
+
+      timers = stillActive;
+      saveData();
+    }
+
     function tick() {
-      timers.forEach((t, i) => {
+      timers.forEach((t) => {
         if (t.remaining > 0) {
           t.remaining--;
           if (t.remaining === 0) {
@@ -92,6 +131,7 @@
           }
         }
       });
+      // Remove only those that actually hit zero now
       timers = timers.filter(t => t.remaining > 0);
       saveData();
       render();
@@ -126,6 +166,9 @@
       saveData();
       render();
     }
+
+    // Run once on load to restore active timers correctly after refresh
+    hydrateActiveTimersOnLoad();
 
     setInterval(tick, 1000);
     render();
