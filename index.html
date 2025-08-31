@@ -76,44 +76,33 @@
       const totalSeconds = hours * 3600 + minutes * 60 + seconds;
       if (totalSeconds <= 0) return;
 
-      timers.push({ name, remaining: totalSeconds, start: Date.now(), duration: totalSeconds });
+      timers.push({ name, remaining: totalSeconds, start: Date.now(), duration: totalSeconds, finishedLogged: false });
       saveData();
       render();
     }
 
-    // 🔧 NEW: Rehydrate active timers after a refresh/close
+    // Rehydrate active timers after refresh/close
     function hydrateActiveTimersOnLoad() {
       const now = Date.now();
       const delta = Math.floor((now - lastSaved) / 1000); // seconds while page was closed
       if (delta <= 0 || timers.length === 0) return;
 
-      const stillActive = [];
       timers.forEach(t => {
-        // Adjust remaining by downtime
-        let newRemaining = Math.max(0, (t.remaining || 0) - delta);
-
-        if (newRemaining === 0) {
-          // Timer finished during downtime → move to finished (finished table logic unchanged)
-          // End time = when it would have ended based on last known state
-          const endTime = t.start ? (t.start + t.duration * 1000) : (lastSaved + (t.remaining || 0) * 1000);
-          // Avoid duplicates
-          const exists = finished.some(f => f.name === t.name && f.start === t.start);
-          if (!exists) {
-            finished.push({
-              name: t.name,
-              start: t.start || (now - (t.duration || 0) * 1000),
-              end: endTime,
-              duration: t.duration || (t.remaining || 0)
-            });
-          }
-        } else {
-          // Still running
-          t.remaining = newRemaining;
-          stillActive.push(t);
+        if (t.remaining > 0) {
+          t.remaining = Math.max(0, t.remaining - delta);
+        }
+        if (t.remaining === 0 && !t.finishedLogged) {
+          // Add to finished if not already logged
+          finished.push({
+            name: t.name,
+            start: t.start,
+            end: t.start + t.duration * 1000,
+            duration: t.duration
+          });
+          t.finishedLogged = true; // Prevent duplicate logs
         }
       });
 
-      timers = stillActive;
       saveData();
     }
 
@@ -121,18 +110,17 @@
       timers.forEach((t) => {
         if (t.remaining > 0) {
           t.remaining--;
-          if (t.remaining === 0) {
+          if (t.remaining === 0 && !t.finishedLogged) {
             finished.push({
               name: t.name,
               start: t.start,
               end: Date.now(),
               duration: t.duration
             });
+            t.finishedLogged = true;
           }
         }
       });
-      // Remove only those that actually hit zero now
-      timers = timers.filter(t => t.remaining > 0);
       saveData();
       render();
     }
@@ -167,7 +155,6 @@
       render();
     }
 
-    // Run once on load to restore active timers correctly after refresh
     hydrateActiveTimersOnLoad();
 
     setInterval(tick, 1000);
