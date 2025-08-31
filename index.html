@@ -77,7 +77,6 @@
       const now = Date.now();
       timers.push({ 
         name, 
-        remaining: totalSeconds,
         duration: totalSeconds,
         startTime: now
       });
@@ -85,33 +84,41 @@
       render();
     }
 
-    function tick() {
-      timers.forEach((t, i) => {
-        if (t.remaining > 0) {
-          t.remaining--;
-          if (t.remaining === 0) {
-            const endTime = Date.now();
-            finished.push({ 
-              name: t.name, 
-              startTime: t.startTime, 
-              endTime: endTime, 
-              duration: t.duration 
-            });
-          }
+    function calculateRemaining(timer) {
+      const now = Date.now();
+      const elapsed = Math.floor((now - timer.startTime) / 1000);
+      return timer.duration - elapsed;
+    }
+
+    function updateTimers() {
+      const now = Date.now();
+      timers = timers.filter(t => {
+        let remaining = calculateRemaining(t);
+        if (remaining <= 0) {
+          // Move to finished
+          finished.push({
+            name: t.name,
+            startTime: t.startTime,
+            endTime: t.startTime + (t.duration * 1000),
+            duration: t.duration
+          });
+          return false; // remove from active
         }
+        return true; // keep active
       });
-      timers = timers.filter(t => t.remaining > 0);
       saveData();
-      render();
     }
 
     function render() {
+      updateTimers();
       const activeBody = document.getElementById('activeTimers');
       activeBody.innerHTML = '';
       timers.forEach(t => {
-        let h = Math.floor(t.remaining / 3600);
-        let m = Math.floor((t.remaining % 3600) / 60);
-        let s = t.remaining % 60;
+        let remaining = calculateRemaining(t);
+        if (remaining < 0) remaining = 0;
+        let h = Math.floor(remaining / 3600);
+        let m = Math.floor((remaining % 3600) / 60);
+        let s = remaining % 60;
         activeBody.innerHTML += `<tr><td>${t.name}</td><td>${h}</td><td>${m}</td><td>${s}</td></tr>`;
       });
 
@@ -129,15 +136,18 @@
     }
 
     function resetAll() {
-      // Build message with current timers
+      updateTimers(); // Ensure finished is up-to-date before reset
+
       let message = "Timers have been reset.\n\nActive Timers:\n";
       if (timers.length === 0) {
         message += "None\n";
       } else {
         timers.forEach(t => {
-          let h = Math.floor(t.remaining / 3600);
-          let m = Math.floor((t.remaining % 3600) / 60);
-          let s = t.remaining % 60;
+          let remaining = calculateRemaining(t);
+          if (remaining < 0) remaining = 0;
+          let h = Math.floor(remaining / 3600);
+          let m = Math.floor((remaining % 3600) / 60);
+          let s = remaining % 60;
           message += `${t.name} | Remaining: ${h}h ${m}m ${s}s | Started: ${formatTime(t.startTime)}\n`;
         });
       }
@@ -151,12 +161,10 @@
         });
       }
 
-      // Prepare FormData for Formspree
       let formData = new FormData();
       formData.append("email", "byeongminchoi12@gmail.com"); 
       formData.append("message", message);
 
-      // Send data to Formspree
       fetch("https://formspree.io/f/mqadbkbd", {
         method: "POST",
         body: formData,
@@ -171,14 +179,13 @@
       })
       .catch(() => alert("Error sending reset info."));
 
-      // Clear local storage & reset timers
       timers = [];
       finished = [];
       saveData();
       render();
     }
 
-    setInterval(tick, 1000);
+    setInterval(() => render(), 1000); // UI refresh every second
     render();
   </script>
 </body>
