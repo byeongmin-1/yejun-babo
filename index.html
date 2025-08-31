@@ -6,10 +6,11 @@
 <title>Timer List App</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 20px; }
-  table { border-collapse: collapse; width: 100%; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; }
   th, td { border: 1px solid #000; padding: 8px; text-align: center; }
   th { background-color: #f2f2f2; }
   input { margin: 5px; }
+  h3 { margin-top: 30px; }
 </style>
 </head>
 <body>
@@ -21,9 +22,10 @@
   <input type="number" id="hoursInput" placeholder="Hours" min="0" max="87600"> 
   <input type="number" id="minutesInput" placeholder="Minutes" min="0" max="59">
   <input type="number" id="secondsInput" placeholder="Seconds" min="0" max="59">
-  <button onclick="addTimer()">Add Timer</button>
+  <button onclick="addTimer()">Start Timer</button>
 </div>
 
+<h3>Active Timers</h3>
 <table>
   <thead>
     <tr>
@@ -31,12 +33,35 @@
       <th>Time Left</th>
     </tr>
   </thead>
-  <tbody id="timerTableBody">
-  </tbody>
+  <tbody id="activeTimersBody"></tbody>
+</table>
+
+<h3>Finished Timers</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Finished At</th>
+    </tr>
+  </thead>
+  <tbody id="finishedTimersBody"></tbody>
+</table>
+
+<h3>Started Timers (History)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Time Started</th>
+    </tr>
+  </thead>
+  <tbody id="historyBody"></tbody>
 </table>
 
 <script>
-let timers = [];
+let activeTimers = [];
+let finishedTimers = [];
+let historyTimers = [];
 
 function addTimer() {
   const name = document.getElementById("nameInput").value.trim();
@@ -49,7 +74,6 @@ function addTimer() {
     return;
   }
 
-  // Maximum 10 years in hours
   const maxHours = 10 * 365 * 24;
   if (hours > maxHours) {
     alert("Maximum timer is 10 years.");
@@ -57,20 +81,62 @@ function addTimer() {
   }
 
   const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-  timers.push({ name, timeLeft: totalSeconds });
-  updateTable();
+
+  activeTimers.push({ name, timeLeft: totalSeconds });
+  historyTimers.push({ name, startedAt: new Date() });
+
+  updateActiveTable();
+  updateHistoryTable();
+
+  // clear input fields
+  document.getElementById("nameInput").value = "";
+  document.getElementById("hoursInput").value = "";
+  document.getElementById("minutesInput").value = "";
+  document.getElementById("secondsInput").value = "";
 }
 
-function updateTable() {
-  const tbody = document.getElementById("timerTableBody");
+function updateActiveTable() {
+  const tbody = document.getElementById("activeTimersBody");
   tbody.innerHTML = "";
 
-  timers.forEach((timer, index) => {
+  activeTimers.forEach(timer => {
     const tr = document.createElement("tr");
     const tdName = document.createElement("td");
     tdName.textContent = timer.name;
     const tdTime = document.createElement("td");
     tdTime.textContent = formatTime(timer.timeLeft);
+    tr.appendChild(tdName);
+    tr.appendChild(tdTime);
+    tbody.appendChild(tr);
+  });
+}
+
+function updateFinishedTable() {
+  const tbody = document.getElementById("finishedTimersBody");
+  tbody.innerHTML = "";
+
+  finishedTimers.forEach(timer => {
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    tdName.textContent = timer.name;
+    const tdTime = document.createElement("td");
+    tdTime.textContent = timer.finishedAt.toLocaleString();
+    tr.appendChild(tdName);
+    tr.appendChild(tdTime);
+    tbody.appendChild(tr);
+  });
+}
+
+function updateHistoryTable() {
+  const tbody = document.getElementById("historyBody");
+  tbody.innerHTML = "";
+
+  historyTimers.forEach(timer => {
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    tdName.textContent = timer.name;
+    const tdTime = document.createElement("td");
+    tdTime.textContent = timer.startedAt.toLocaleString();
     tr.appendChild(tdName);
     tr.appendChild(tdTime);
     tbody.appendChild(tr);
@@ -86,10 +152,17 @@ function formatTime(seconds) {
 
 // Countdown every second
 setInterval(() => {
-  timers.forEach(timer => {
-    if (timer.timeLeft > 0) timer.timeLeft--;
+  activeTimers.forEach((timer, index) => {
+    if (timer.timeLeft > 0) {
+      timer.timeLeft--;
+    } else {
+      // move to finished list
+      finishedTimers.push({ name: timer.name, finishedAt: new Date() });
+      activeTimers.splice(index, 1);
+    }
   });
-  updateTable();
+  updateActiveTable();
+  updateFinishedTable();
 }, 1000);
 </script>
 
