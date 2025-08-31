@@ -35,7 +35,7 @@
   <h2>Finished Timers</h2>
   <table>
     <thead>
-      <tr><th>Name</th><th>Status</th></tr>
+      <tr><th>Name</th><th>Started At</th><th>Ended At</th><th>Duration</th></tr>
     </thead>
     <tbody id="finishedTimers"></tbody>
   </table>
@@ -49,6 +49,22 @@
       localStorage.setItem('finished', JSON.stringify(finished));
     }
 
+    function formatTime(ts) {
+      let date = new Date(ts);
+      return date.toLocaleString('en-US', { 
+        year: 'numeric', month: '2-digit', day: '2-digit', 
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false 
+      });
+    }
+
+    function formatDuration(seconds) {
+      let h = Math.floor(seconds / 3600);
+      let m = Math.floor((seconds % 3600) / 60);
+      let s = seconds % 60;
+      return `${h}h ${m}m ${s}s`;
+    }
+
     function addTimer() {
       const name = document.getElementById('name').value || "Unnamed";
       const hours = parseInt(document.getElementById('hours').value) || 0;
@@ -58,7 +74,13 @@
       const totalSeconds = hours * 3600 + minutes * 60 + seconds;
       if (totalSeconds <= 0) return;
 
-      timers.push({ name, remaining: totalSeconds });
+      const now = Date.now();
+      timers.push({ 
+        name, 
+        remaining: totalSeconds,
+        duration: totalSeconds,
+        startTime: now
+      });
       saveData();
       render();
     }
@@ -68,7 +90,13 @@
         if (t.remaining > 0) {
           t.remaining--;
           if (t.remaining === 0) {
-            finished.push({ name: t.name, status: "Finished" });
+            const endTime = Date.now();
+            finished.push({ 
+              name: t.name, 
+              startTime: t.startTime, 
+              endTime: endTime, 
+              duration: t.duration 
+            });
           }
         }
       });
@@ -90,7 +118,13 @@
       const finishedBody = document.getElementById('finishedTimers');
       finishedBody.innerHTML = '';
       finished.forEach(f => {
-        finishedBody.innerHTML += `<tr><td>${f.name}</td><td>${f.status}</td></tr>`;
+        finishedBody.innerHTML += `
+          <tr>
+            <td>${f.name}</td>
+            <td>${formatTime(f.startTime)}</td>
+            <td>${formatTime(f.endTime)}</td>
+            <td>${formatDuration(f.duration)}</td>
+          </tr>`;
       });
     }
 
@@ -104,7 +138,7 @@
           let h = Math.floor(t.remaining / 3600);
           let m = Math.floor((t.remaining % 3600) / 60);
           let s = t.remaining % 60;
-          message += `${t.name} | ${h}h | ${m}m | ${s}s\n`;
+          message += `${t.name} | Remaining: ${h}h ${m}m ${s}s | Started: ${formatTime(t.startTime)}\n`;
         });
       }
 
@@ -113,7 +147,7 @@
         message += "None\n";
       } else {
         finished.forEach(f => {
-          message += `${f.name} | ${f.status}\n`;
+          message += `${f.name} | Started: ${formatTime(f.startTime)} | Ended: ${formatTime(f.endTime)} | Duration: ${formatDuration(f.duration)}\n`;
         });
       }
 
