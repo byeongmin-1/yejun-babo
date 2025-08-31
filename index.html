@@ -6,9 +6,8 @@
   <title>Timer App</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    #timers, #finished { margin-top: 20px; }
-    .timer { margin: 5px 0; }
-    button { margin-left: 10px; }
+    table { border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid black; padding: 5px 10px; }
   </style>
 </head>
 <body>
@@ -24,10 +23,14 @@
   </div>
 
   <h2>Active Timers</h2>
-  <div id="timers"></div>
+  <table id="timersTable">
+    <tr><th>Name</th><th>Time Left</th></tr>
+  </table>
 
   <h2>Finished Timers</h2>
-  <div id="finished"></div>
+  <table id="finishedTable">
+    <tr><th>Name</th><th>Started</th><th>Finished</th></tr>
+  </table>
 
   <script>
     let timers = JSON.parse(localStorage.getItem("timers")) || [];
@@ -39,23 +42,25 @@
     }
 
     function renderTimers() {
-      const timersDiv = document.getElementById("timers");
-      const finishedDiv = document.getElementById("finished");
-      timersDiv.innerHTML = "";
-      finishedDiv.innerHTML = "";
+      const timersTable = document.getElementById("timersTable");
+      const finishedTable = document.getElementById("finishedTable");
+
+      timersTable.innerHTML = "<tr><th>Name</th><th>Time Left</th></tr>";
+      finishedTable.innerHTML = "<tr><th>Name</th><th>Started</th><th>Finished</th></tr>";
 
       timers.forEach((t, i) => {
-        const div = document.createElement("div");
-        div.className = "timer";
-        div.textContent = `${t.name} - ${t.hours}h ${t.minutes}m ${t.seconds}s`;
-        timersDiv.appendChild(div);
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${t.name}</td>
+                         <td>${t.hours}h ${t.minutes}m ${t.seconds}s</td>`;
+        timersTable.appendChild(row);
       });
 
       finishedTimers.forEach((t, i) => {
-        const div = document.createElement("div");
-        div.className = "timer";
-        div.textContent = `${t.name} (Finished)`;
-        finishedDiv.appendChild(div);
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${t.name}</td>
+                         <td>${t.startTime}</td>
+                         <td>${t.endTime}</td>`;
+        finishedTable.appendChild(row);
       });
     }
 
@@ -65,7 +70,13 @@
       const minutes = parseInt(document.getElementById("minutes").value) || 0;
       const seconds = parseInt(document.getElementById("seconds").value) || 0;
 
-      timers.push({ name, hours, minutes, seconds });
+      timers.push({ 
+        name, 
+        hours, 
+        minutes, 
+        seconds, 
+        startTime: new Date().toLocaleString() 
+      });
       saveData();
       renderTimers();
     }
@@ -87,7 +98,7 @@
         message += "None\n";
       } else {
         finishedTimers.forEach(t => {
-          message += `${t.name} | ${t.hours}h ${t.minutes}m ${t.seconds}s\n`;
+          message += `${t.name} | Started: ${t.startTime} | Finished: ${t.endTime}\n`;
         });
       }
 
@@ -116,6 +127,29 @@
       finishedTimers = [];
       renderTimers();
     }
+
+    // Example countdown (runs every second)
+    setInterval(() => {
+      timers.forEach((t, i) => {
+        if (t.seconds > 0) {
+          t.seconds--;
+        } else if (t.minutes > 0) {
+          t.minutes--; t.seconds = 59;
+        } else if (t.hours > 0) {
+          t.hours--; t.minutes = 59; t.seconds = 59;
+        } else {
+          // Timer finished
+          finishedTimers.push({
+            name: t.name,
+            startTime: t.startTime,
+            endTime: new Date().toLocaleString()
+          });
+          timers.splice(i, 1);
+        }
+      });
+      saveData();
+      renderTimers();
+    }, 1000);
 
     renderTimers();
   </script>
