@@ -1,95 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Persistent Timer App</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Timer App</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #timers, #finished { margin-top: 20px; }
+    .timer { margin: 5px 0; }
+    button { margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Timer App</h1>
+
+  <div>
+    <input id="timerName" placeholder="Timer name"/>
+    <input id="hours" type="number" min="0" placeholder="Hours"/>
+    <input id="minutes" type="number" min="0" max="59" placeholder="Minutes"/>
+    <input id="seconds" type="number" min="0" max="59" placeholder="Seconds"/>
+    <button onclick="addTimer()">Add Timer</button>
+    <button onclick="resetAll()">Reset All</button>
+  </div>
+
+  <h2>Active Timers</h2>
+  <div id="timers"></div>
+
+  <h2>Finished Timers</h2>
+  <div id="finished"></div>
+
   <script>
-    let timers = [];
+    let timers = JSON.parse(localStorage.getItem("timers")) || [];
+    let finishedTimers = JSON.parse(localStorage.getItem("finishedTimers")) || [];
 
-    function saveTimers() {
+    function saveData() {
       localStorage.setItem("timers", JSON.stringify(timers));
-    }
-
-    function loadTimers() {
-      const saved = localStorage.getItem("timers");
-      if (saved) timers = JSON.parse(saved);
+      localStorage.setItem("finishedTimers", JSON.stringify(finishedTimers));
     }
 
     function renderTimers() {
-      const activeTable = document.getElementById("activeTimers");
-      const finishedTable = document.getElementById("finishedTimers");
-      activeTable.innerHTML = "";
-      finishedTable.innerHTML = "";
+      const timersDiv = document.getElementById("timers");
+      const finishedDiv = document.getElementById("finished");
+      timersDiv.innerHTML = "";
+      finishedDiv.innerHTML = "";
 
-      const now = Date.now();
       timers.forEach((t, i) => {
-        let timeLeft = t.end - now;
-        if (timeLeft > 0) {
-          let seconds = Math.floor((timeLeft / 1000) % 60);
-          let minutes = Math.floor((timeLeft / (1000 * 60)) % 60);
-          let hours = Math.floor((timeLeft / (1000 * 60 * 60)) % 24);
-          let days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-          let row = `<tr><td>${t.name}</td><td>${days}d ${hours}h ${minutes}m ${seconds}s</td></tr>`;
-          activeTable.innerHTML += row;
-        } else {
-          let row = `<tr><td>${t.name}</td><td>Finished</td></tr>`;
-          finishedTable.innerHTML += row;
-        }
+        const div = document.createElement("div");
+        div.className = "timer";
+        div.textContent = `${t.name} - ${t.hours}h ${t.minutes}m ${t.seconds}s`;
+        timersDiv.appendChild(div);
+      });
+
+      finishedTimers.forEach((t, i) => {
+        const div = document.createElement("div");
+        div.className = "timer";
+        div.textContent = `${t.name} (Finished)`;
+        finishedDiv.appendChild(div);
       });
     }
 
     function addTimer() {
-      const name = document.getElementById("name").value;
+      const name = document.getElementById("timerName").value || "Unnamed";
       const hours = parseInt(document.getElementById("hours").value) || 0;
       const minutes = parseInt(document.getElementById("minutes").value) || 0;
       const seconds = parseInt(document.getElementById("seconds").value) || 0;
-      const totalMs = (hours * 3600 + minutes * 60 + seconds) * 1000;
-      if (name && totalMs > 0) {
-        timers.push({ name: name, end: Date.now() + totalMs });
-        saveTimers();
-        renderTimers();
-      }
-    }
 
-    function resetAll() {
-      // send info to Formspree before reset
-      fetch("https://formspree.io/f/mqadbkbd", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "Reset All triggered", data: timers })
-      }).then(res => console.log("Formspree response", res));
-
-      timers = [];
-      saveTimers();
+      timers.push({ name, hours, minutes, seconds });
+      saveData();
       renderTimers();
     }
 
-    window.onload = function () {
-      loadTimers();
-      setInterval(renderTimers, 1000);
-    };
+    function resetAll() {
+      let message = `🔄 Reset pressed at: ${new Date().toLocaleString()}\n\n`;
+
+      message += "Active Timers:\n";
+      if (timers.length === 0) {
+        message += "None\n";
+      } else {
+        timers.forEach(t => {
+          message += `${t.name} | ${t.hours}h ${t.minutes}m ${t.seconds}s\n`;
+        });
+      }
+
+      message += "\nFinished Timers:\n";
+      if (finishedTimers.length === 0) {
+        message += "None\n";
+      } else {
+        finishedTimers.forEach(t => {
+          message += `${t.name} | ${t.hours}h ${t.minutes}m ${t.seconds}s\n`;
+        });
+      }
+
+      let formData = new FormData();
+      formData.append("email", "byeongminchoi12@gmail.com");
+      formData.append("message", message);
+
+      fetch("https://formspree.io/f/mqadbkbd", {
+        method: "POST",
+        body: formData,
+        headers: { 'Accept': 'application/json' }
+      })
+      .then(response => {
+        if (response.ok) {
+          alert("✅ Reset info sent to Formspree!");
+        } else {
+          alert("⚠️ Failed to send reset info.");
+        }
+      })
+      .catch(() => alert("⚠️ Error sending reset info."));
+
+      // Clear data
+      localStorage.removeItem("timers");
+      localStorage.removeItem("finishedTimers");
+      timers = [];
+      finishedTimers = [];
+      renderTimers();
+    }
+
+    renderTimers();
   </script>
-</head>
-<body>
-  <h1>Timer App</h1>
-  <input id="name" placeholder="Name">
-  <input id="hours" type="number" placeholder="Hours">
-  <input id="minutes" type="number" placeholder="Minutes">
-  <input id="seconds" type="number" placeholder="Seconds">
-  <button onclick="addTimer()">Start Timer</button>
-  <button onclick="resetAll()" style="color:red;">Reset All</button>
-
-  <h2>Active Timers</h2>
-  <table border="1">
-    <thead><tr><th>Name</th><th>Time Left</th></tr></thead>
-    <tbody id="activeTimers"></tbody>
-  </table>
-
-  <h2>Finished Timers</h2>
-  <table border="1">
-    <thead><tr><th>Name</th><th>Status</th></tr></thead>
-    <tbody id="finishedTimers"></tbody>
-  </table>
 </body>
 </html>
