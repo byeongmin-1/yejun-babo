@@ -27,7 +27,7 @@
   <h2>Active Timers</h2>
   <table>
     <thead>
-      <tr><th>Name</th><th>Hours</th><th>Minutes</th><th>Seconds</th></tr>
+      <tr><th>Name</th><th>Status</th><th>Hours</th><th>Minutes</th><th>Seconds</th></tr>
     </thead>
     <tbody id="activeTimers"></tbody>
   </table>
@@ -48,8 +48,7 @@
     function saveData() {
       localStorage.setItem('timers', JSON.stringify(timers));
       localStorage.setItem('finished', JSON.stringify(finished));
-      lastSaved = Date.now();
-      localStorage.setItem('lastSaved', String(lastSaved));
+      localStorage.setItem('lastSaved', Date.now());
     }
 
     function formatTime(date) {
@@ -76,30 +75,34 @@
       const totalSeconds = hours * 3600 + minutes * 60 + seconds;
       if (totalSeconds <= 0) return;
 
-      timers.push({ name, remaining: totalSeconds, start: Date.now(), duration: totalSeconds, finishedLogged: false });
+      timers.push({
+        name,
+        remaining: totalSeconds,
+        start: Date.now(),
+        duration: totalSeconds,
+        finishedLogged: false
+      });
       saveData();
       render();
     }
 
-    // Rehydrate active timers after refresh/close
-    function hydrateActiveTimersOnLoad() {
+    function hydrateAfterOffline() {
       const now = Date.now();
-      const delta = Math.floor((now - lastSaved) / 1000); // seconds while page was closed
-      if (delta <= 0 || timers.length === 0) return;
+      const delta = Math.floor((now - lastSaved) / 1000); // seconds offline
+      if (delta <= 0) return;
 
       timers.forEach(t => {
         if (t.remaining > 0) {
           t.remaining = Math.max(0, t.remaining - delta);
         }
         if (t.remaining === 0 && !t.finishedLogged) {
-          // Add to finished if not already logged
           finished.push({
             name: t.name,
             start: t.start,
             end: t.start + t.duration * 1000,
             duration: t.duration
           });
-          t.finishedLogged = true; // Prevent duplicate logs
+          t.finishedLogged = true;
         }
       });
 
@@ -107,7 +110,7 @@
     }
 
     function tick() {
-      timers.forEach((t) => {
+      timers.forEach(t => {
         if (t.remaining > 0) {
           t.remaining--;
           if (t.remaining === 0 && !t.finishedLogged) {
@@ -129,10 +132,11 @@
       const activeBody = document.getElementById('activeTimers');
       activeBody.innerHTML = '';
       timers.forEach(t => {
+        let status = t.remaining === 0 ? 'Expired' : 'Running';
         let h = Math.floor(t.remaining / 3600);
         let m = Math.floor((t.remaining % 3600) / 60);
         let s = t.remaining % 60;
-        activeBody.innerHTML += `<tr><td>${t.name}</td><td>${h}</td><td>${m}</td><td>${s}</td></tr>`;
+        activeBody.innerHTML += `<tr><td>${t.name}</td><td>${status}</td><td>${h}</td><td>${m}</td><td>${s}</td></tr>`;
       });
 
       const finishedBody = document.getElementById('finishedTimers');
@@ -155,8 +159,7 @@
       render();
     }
 
-    hydrateActiveTimersOnLoad();
-
+    hydrateAfterOffline();
     setInterval(tick, 1000);
     render();
   </script>
