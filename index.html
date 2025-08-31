@@ -2,97 +2,97 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Persistent Timer App</title>
+  <title>Offline Timer App</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background: #f4f4f4; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #333; padding: 8px; text-align: center; }
+    input { margin: 5px; }
   </style>
 </head>
 <body>
-  <h1>Timer App</h1>
-  <label>Name: <input id="nameInput" type="text"></label>
-  <label>Duration (seconds): <input id="durationInput" type="number"></label>
-  <button onclick="addTimer()">Add Timer</button>
+  <h1>Timer System</h1>
+  <div>
+    <input id="name" placeholder="Name">
+    <input id="hours" type="number" placeholder="Hours" min="0">
+    <input id="minutes" type="number" placeholder="Minutes" min="0" max="59">
+    <input id="seconds" type="number" placeholder="Seconds" min="0" max="59">
+    <button onclick="startTimer()">Start Timer</button>
+  </div>
 
   <h2>Active Timers</h2>
   <table id="activeTable">
-    <tr><th>Name</th><th>Time Left</th></tr>
+    <thead>
+      <tr>
+        <th>Name</th><th>Hours</th><th>Minutes</th><th>Seconds</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
   </table>
 
   <h2>Finished Timers</h2>
   <table id="finishedTable">
-    <tr><th>Name</th><th>Status</th></tr>
+    <thead>
+      <tr>
+        <th>Name</th><th>Hours</th><th>Minutes</th><th>Seconds</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
   </table>
 
   <script>
-    let timers = [];
+    let timers = JSON.parse(localStorage.getItem("timers")) || [];
+    let finished = JSON.parse(localStorage.getItem("finished")) || [];
 
-    function saveTimers() {
+    function saveData() {
       localStorage.setItem("timers", JSON.stringify(timers));
+      localStorage.setItem("finished", JSON.stringify(finished));
     }
 
-    function loadTimers() {
-      const saved = JSON.parse(localStorage.getItem("timers") || "[]");
-      const now = Date.now();
-      timers = saved.map(t => {
-        let remaining = t.endTime - now;
-        return {
-          name: t.name,
-          endTime: t.endTime,
-          finished: remaining <= 0
-        };
-      });
-    }
+    function startTimer() {
+      const name = document.getElementById("name").value;
+      const h = parseInt(document.getElementById("hours").value) || 0;
+      const m = parseInt(document.getElementById("minutes").value) || 0;
+      const s = parseInt(document.getElementById("seconds").value) || 0;
+      const total = (h * 3600 + m * 60 + s) * 1000;
 
-    function addTimer() {
-      const name = document.getElementById("nameInput").value.trim();
-      const duration = parseInt(document.getElementById("durationInput").value);
-      if (!name || isNaN(duration) || duration <= 0) return;
+      if (!name || total <= 0) return;
 
-      const endTime = Date.now() + duration * 1000;
-      timers.push({ name, endTime, finished: false });
-      saveTimers();
+      timers.push({ name, end: Date.now() + total });
+      saveData();
       render();
     }
 
-    function formatTime(ms) {
-      if (ms <= 0) return "00:00:00";
-      let totalSeconds = Math.floor(ms / 1000);
-      let h = Math.floor(totalSeconds / 3600);
-      let m = Math.floor((totalSeconds % 3600) / 60);
-      let s = totalSeconds % 60;
-      return [h, m, s].map(x => String(x).padStart(2, '0')).join(":");
-    }
-
     function render() {
-      const now = Date.now();
-      const activeTable = document.getElementById("activeTable");
-      const finishedTable = document.getElementById("finishedTable");
+      const activeBody = document.querySelector("#activeTable tbody");
+      const finishedBody = document.querySelector("#finishedTable tbody");
+      activeBody.innerHTML = "";
+      finishedBody.innerHTML = "";
 
-      activeTable.innerHTML = "<tr><th>Name</th><th>Time Left</th></tr>";
-      finishedTable.innerHTML = "<tr><th>Name</th><th>Status</th></tr>";
-
-      timers.forEach(t => {
-        let remaining = t.endTime - now;
-        if (remaining > 0 && !t.finished) {
-          const row = activeTable.insertRow();
-          row.insertCell().innerText = t.name;
-          row.insertCell().innerText = formatTime(remaining);
-        } else {
-          t.finished = true;
-          const row = finishedTable.insertRow();
-          row.insertCell().innerText = t.name;
-          row.insertCell().innerText = "Finished";
+      timers.forEach((t, i) => {
+        let left = Math.max(0, t.end - Date.now());
+        if (left <= 0) {
+          finished.push({ name: t.name, end: t.end });
+          timers.splice(i, 1);
+          saveData();
+          return;
         }
+        let sec = Math.floor(left / 1000);
+        let h = Math.floor(sec / 3600);
+        let m = Math.floor((sec % 3600) / 60);
+        let s = sec % 60;
+
+        const row = `<tr><td>${t.name}</td><td>${h}</td><td>${m}</td><td>${s}</td></tr>`;
+        activeBody.innerHTML += row;
       });
-      saveTimers();
+
+      finished.forEach(f => {
+        const row = `<tr><td>${f.name}</td><td>0</td><td>0</td><td>0</td></tr>`;
+        finishedBody.innerHTML += row;
+      });
     }
 
     setInterval(render, 1000);
-
-    loadTimers();
     render();
   </script>
 </body>
