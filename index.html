@@ -43,12 +43,10 @@
   <script>
     let timers = JSON.parse(localStorage.getItem('timers') || '[]');
     let finished = JSON.parse(localStorage.getItem('finished') || '[]');
-    let lastSaved = Number(localStorage.getItem('lastSaved') || Date.now());
 
     function saveData() {
       localStorage.setItem('timers', JSON.stringify(timers));
       localStorage.setItem('finished', JSON.stringify(finished));
-      localStorage.setItem('lastSaved', Date.now());
     }
 
     function formatTime(date) {
@@ -75,10 +73,13 @@
       const totalSeconds = hours * 3600 + minutes * 60 + seconds;
       if (totalSeconds <= 0) return;
 
+      const start = Date.now();
+      const end = start + totalSeconds * 1000;
+
       timers.push({
         name,
-        remaining: totalSeconds,
-        start: Date.now(),
+        start,
+        end,
         duration: totalSeconds,
         finishedLogged: false
       });
@@ -86,20 +87,16 @@
       render();
     }
 
-    function hydrateAfterOffline() {
+    function tick() {
       const now = Date.now();
-      const delta = Math.floor((now - lastSaved) / 1000); // seconds offline
-      if (delta <= 0) return;
 
       timers.forEach(t => {
-        if (t.remaining > 0) {
-          t.remaining = Math.max(0, t.remaining - delta);
-        }
-        if (t.remaining === 0 && !t.finishedLogged) {
+        const remaining = Math.max(0, Math.floor((t.end - now) / 1000));
+        if (remaining === 0 && !t.finishedLogged) {
           finished.push({
             name: t.name,
             start: t.start,
-            end: t.start + t.duration * 1000,
+            end: t.end,
             duration: t.duration
           });
           t.finishedLogged = true;
@@ -107,35 +104,19 @@
       });
 
       saveData();
-    }
-
-    function tick() {
-      timers.forEach(t => {
-        if (t.remaining > 0) {
-          t.remaining--;
-          if (t.remaining === 0 && !t.finishedLogged) {
-            finished.push({
-              name: t.name,
-              start: t.start,
-              end: Date.now(),
-              duration: t.duration
-            });
-            t.finishedLogged = true;
-          }
-        }
-      });
-      saveData();
       render();
     }
 
     function render() {
+      const now = Date.now();
       const activeBody = document.getElementById('activeTimers');
       activeBody.innerHTML = '';
       timers.forEach(t => {
-        let status = t.remaining === 0 ? 'Expired' : 'Running';
-        let h = Math.floor(t.remaining / 3600);
-        let m = Math.floor((t.remaining % 3600) / 60);
-        let s = t.remaining % 60;
+        const remaining = Math.max(0, Math.floor((t.end - now) / 1000));
+        let status = remaining === 0 ? 'Expired' : 'Running';
+        let h = Math.floor(remaining / 3600);
+        let m = Math.floor((remaining % 3600) / 60);
+        let s = remaining % 60;
         activeBody.innerHTML += `<tr><td>${t.name}</td><td>${status}</td><td>${h}</td><td>${m}</td><td>${s}</td></tr>`;
       });
 
@@ -159,7 +140,6 @@
       render();
     }
 
-    hydrateAfterOffline();
     setInterval(tick, 1000);
     render();
   </script>
