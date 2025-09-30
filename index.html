@@ -1,147 +1,104 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Offline Timer App</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background: #f4f4f4; }
-    input { margin: 5px; }
-    button { margin: 5px; padding: 5px 10px; }
-  </style>
-</head>
-<body>
-  <h1>Timer System</h1>
-  
-  <div>
-    <input id="name" placeholder="Name">
-    <input id="hours" type="number" placeholder="Hours" min="0">
-    <input id="minutes" type="number" placeholder="Minutes" min="0" max="59">
-    <input id="seconds" type="number" placeholder="Seconds" min="0" max="59">
-    <button onclick="addTimer()">Add Timer</button>
-    <button onclick="resetAll()">Reset All</button>
-  </div>
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
-  <h2>Active Timers</h2>
-  <table>
-    <thead>
-      <tr><th>Name</th><th>Status</th><th>Hours</th><th>Minutes</th><th>Seconds</th></tr>
-    </thead>
-    <tbody id="activeTimers"></tbody>
-  </table>
+// Simple SRT parser
+function parseSRT(data) {
+  const regex = /(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+([\s\S]*?)(?=\n\n|\n*$)/g;
+  let result;
+  const subtitles = [];
 
-  <h2>Finished Timers</h2>
-  <table>
-    <thead>
-      <tr><th>Name</th><th>Started At</th><th>Ended At</th><th>Duration</th></tr>
-    </thead>
-    <tbody id="finishedTimers"></tbody>
-  </table>
+  while ((result = regex.exec(data)) !== null) {
+    subtitles.push({
+      start: toSeconds(result[2]),
+      end: toSeconds(result[3]),
+      text: result[4].replace("\n", " ")
+    });
+  }
+  return subtitles;
+}
 
-  <script>
-    let timers = JSON.parse(localStorage.getItem('timers') || '[]');
-    let finished = JSON.parse(localStorage.getItem('finished') || '[]');
+function toSeconds(time) {
+  const [h, m, s] = time.replace(",", ":").split(":").map(Number);
+  return h * 3600 + m * 60 + s;
+}
 
-    function saveData() {
-      localStorage.setItem('timers', JSON.stringify(timers));
-      localStorage.setItem('finished', JSON.stringify(finished));
-    }
+export default function SubtitleApp() {
+  const [videoUrl, setVideoUrl] = useState("");
+  const [subtitles, setSubtitles] = useState([]);
+  const [currentText, setCurrentText] = useState("");
+  const [language, setLanguage] = useState("en");
 
-    function formatTime(date) {
-      return new Date(date).toLocaleString('en-US', {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false
-      });
-    }
+  useEffect(() => {
+    const video = document.getElementById("video");
+    const interval = setInterval(() => {
+      if (!video || !subtitles.length) return;
+      const currentTime = video.currentTime;
+      const sub = subtitles.find(
+        (s) => currentTime >= s.start && currentTime <= s.end
+      );
+      setCurrentText(sub ? sub.text : "");
+    }, 300);
+    return () => clearInterval(interval);
+  }, [subtitles]);
 
-    function formatDuration(seconds) {
-      let h = Math.floor(seconds / 3600);
-      let m = Math.floor((seconds % 3600) / 60);
-      let s = seconds % 60;
-      return `${h}h ${m}m ${s}s`;
-    }
+  async function handleFileUpload(e) {
+    const file = e.target.files[0];
+    const text = await file.text();
+    let subs = parseSRT(text);
 
-    function addTimer() {
-      const name = document.getElementById('name').value || "Unnamed";
-      const hours = parseInt(document.getElementById('hours').value) || 0;
-      const minutes = parseInt(document.getElementById('minutes').value) || 0;
-      const seconds = parseInt(document.getElementById('seconds').value) || 0;
-      
-      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-      if (totalSeconds <= 0) return;
+    // Translate subtitles (using Google Translate API or LibreTranslate)
+    const translated = await Promise.all(
+      subs.map(async (s) => {
+        const res = await fetch("https://libretranslate.de/translate", {
+          method: "POST",
+          body: JSON.stringify({
+            q: s.text,
+            source: "auto",
+            target: language
+          }),
+          headers: { "Content-Type": "application/json" }
+        });
+        const data = await res.json();
+        return { ...s, text: data.translatedText };
+      })
+    );
 
-      const start = Date.now();
-      const end = start + totalSeconds * 1000;
+    setSubtitles(translated);
+  }
 
-      timers.push({
-        name,
-        start,
-        end,
-        duration: totalSeconds,
-        finishedLogged: false
-      });
-      saveData();
-      render();
-    }
+  return (
+    <div className="p-6 space-y-4">
+      <h1 className="text-2xl font-bold">Subtitle Translator</h1>
 
-    function tick() {
-      const now = Date.now();
+      <input
+        type="file"
+        accept=".srt"
+        onChange={handleFileUpload}
+        className="mb-2"
+      />
+      <select
+        onChange={(e) => setLanguage(e.target.value)}
+        className="border rounded p-2"
+      >
+        <option value="en">English</option>
+        <option value="ko">Korean</option>
+        <option value="es">Spanish</option>
+        <option value="fr">French</option>
+        <option value="vi">Vietnamese</option>
+        <option value="zh">Chinese</option>
+      </select>
 
-      timers.forEach(t => {
-        const remaining = Math.max(0, Math.floor((t.end - now) / 1000));
-        if (remaining === 0 && !t.finishedLogged) {
-          finished.push({
-            name: t.name,
-            start: t.start,
-            end: t.end,
-            duration: t.duration
-          });
-          t.finishedLogged = true;
-        }
-      });
+      <video id="video" src={videoUrl} controls className="w-full rounded" />
+      <input
+        type="text"
+        placeholder="Paste video URL"
+        onChange={(e) => setVideoUrl(e.target.value)}
+        className="border p-2 w-full"
+      />
 
-      saveData();
-      render();
-    }
-
-    function render() {
-      const now = Date.now();
-      const activeBody = document.getElementById('activeTimers');
-      activeBody.innerHTML = '';
-      timers.forEach(t => {
-        const remaining = Math.max(0, Math.floor((t.end - now) / 1000));
-        let status = remaining === 0 ? 'Expired' : 'Running';
-        let h = Math.floor(remaining / 3600);
-        let m = Math.floor((remaining % 3600) / 60);
-        let s = remaining % 60;
-        activeBody.innerHTML += `<tr><td>${t.name}</td><td>${status}</td><td>${h}</td><td>${m}</td><td>${s}</td></tr>`;
-      });
-
-      const finishedBody = document.getElementById('finishedTimers');
-      finishedBody.innerHTML = '';
-      finished.forEach(f => {
-        finishedBody.innerHTML += `
-          <tr>
-            <td>${f.name}</td>
-            <td>${formatTime(f.start)}</td>
-            <td>${formatTime(f.end)}</td>
-            <td>${formatDuration(f.duration)}</td>
-          </tr>`;
-      });
-    }
-
-    function resetAll() {
-      timers = [];
-      finished = [];
-      saveData();
-      render();
-    }
-
-    setInterval(tick, 1000);
-    render();
-  </script>
-</body>
-</html>
+      <div className="mt-4 text-xl text-center bg-black text-white p-3 rounded">
+        {currentText}
+      </div>
+    </div>
+  );
+}
