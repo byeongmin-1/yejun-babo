@@ -1,204 +1,73 @@
-<!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Live Captions — 실시간 자막</title>
+  <meta charset="UTF-8">
+  <title>짝사랑 확률 테스트 💘</title>
   <style>
-    :root{font-family:Inter, Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial;}
-    body{display:flex;flex-direction:column;align-items:center;padding:24px;background:#f6f8fb;color:#0b1220}
-    .card{width:100%;max-width:900px;background:white;border-radius:12px;padding:18px;box-shadow:0 6px 20px rgba(12,20,40,0.08)}
-    h1{margin:0 0 8px;font-size:20px}
-    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-    button{padding:10px 14px;border-radius:8px;border:1px solid #e6eef7;background:#fff;cursor:pointer}
-    button.primary{background:#0b69ff;color:#fff;border:none}
-    select{padding:8px;border-radius:8px;border:1px solid #e6eef7}
-    #transcript{min-height:220px;border-radius:8px;padding:12px;border:1px dashed #dfe9ff;background:linear-gradient(180deg,#fff,#fbfdff);white-space:pre-wrap;overflow:auto}
-    .meta{margin-top:10px;color:#4b5563;font-size:13px}
-    footer{margin-top:10px;font-size:12px;color:#6b7280}
+    body {
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      background-color: #fff0f5;
+      padding-top: 100px;
+    }
+    input, button {
+      padding: 12px;
+      margin: 8px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #ff69b4;
+      color: white;
+      cursor: pointer;
+    }
+    #result {
+      font-size: 20px;
+      margin-top: 30px;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Live Captions — 실시간 자막</h1>
-    <p class="meta">녹음하자마자 음성을 텍스트로 변환합니다. Chrome/Edge(데스크탑)에서 가장 잘 작동합니다.</p>
+  <h1>💘 짝사랑 성공 확률 테스트 💘</h1>
+  <p>두 사람의 이름을 입력하세요!</p>
+  <form id="loveForm">
+    <input type="text" id="yourName" name="yourName" placeholder="당신의 이름" required><br>
+    <input type="text" id="crushName" name="crushName" placeholder="짝사랑 상대 이름" required><br>
+    <button type="submit">확률 보기</button>
+  </form>
+  <div id="result"></div>
 
-    <div class="controls">
-      <button id="startBtn" class="primary">녹음 시작</button>
-      <button id="stopBtn">중지</button>
-      <button id="clearBtn">삭제</button>
-      <button id="downloadBtn">텍스트로 저장</button>
+  <script>
+    document.getElementById("loveForm").addEventListener("submit", function(e) {
+      e.preventDefault();
 
-      <label for="lang">언어:</label>
-      <select id="lang">
-        <option value="ko-KR">한국어 (ko-KR)</option>
-        <option value="en-US">English (en-US)</option>
-        <option value="vi-VN">Tiếng Việt (vi-VN)</option>
-        <option value="ja-JP">日本語 (ja-JP)</option>
-        <option value="zh-CN">中文 (zh-CN)</option>
-      </select>
+      const yourName = document.getElementById("yourName").value.trim();
+      const crushName = document.getElementById("crushName").value.trim();
+      const resultBox = document.getElementById("result");
 
-      <label for="interim" style="display:flex;align-items:center;gap:6px;margin-left:8px"><input type="checkbox" id="interim" checked/> 중간(Interim) 자막 표시</label>
-    </div>
+      if (!yourName || !crushName) {
+        resultBox.innerText = "⚠️ 이름을 모두 입력해주세요!";
+        return;
+      }
 
-    <div id="transcript" aria-live="polite" aria-atomic="false">(여기에 실시간 자막이 표시됩니다)</div>
-    <div class="meta" id="status">상태: 대기중</div>
-    <footer>참고: 브라우저에서 마이크 권한을 허용해야 합니다. 일부 브라우저(특히 iOS Safari)는 Web Speech API를 지원하지 않을 수 있습니다.</footer>
-  </div>
 
-<script>
-(function(){
-  // Web Speech API 사용한 간단한 실시간 자막
-  const startBtn = document.getElementById('startBtn');
-  const stopBtn = document.getElementById('stopBtn');
-  const clearBtn = document.getElementById('clearBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const transcriptEl = document.getElementById('transcript');
-  const statusEl = document.getElementById('status');
-  const langSel = document.getElementById('lang');
-  const interimCheckbox = document.getElementById('interim');
+      const percent = Math.floor(Math.random() * 51) + 50;
+      resultBox.innerText = `😍 ${yourName}와(과) ${crushName}의 짝사랑 성공 확률은 ${percent}%입니다!`;
 
-  let recognition = null;
-  let recognizing = false;
-  let finalTranscript = '';
-
-  function supportsSpeech() {
-    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-  }
-
-  function initRecognition() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if(!SR) return null;
-    const r = new SR();
-    r.continuous = true;
-    r.interimResults = true;
-    r.maxAlternatives = 1;
-    r.lang = langSel.value || 'ko-KR';
-    return r;
-  }
-
-  function startRecognition(){
-    if(!supportsSpeech()){
-      statusEl.textContent = '상태: 현재 브라우저는 Web Speech API를 지원하지 않습니다.';
-      alert('이 브라우저는 실시간 음성 인식을 지원하지 않습니다. Chrome 또는 Edge를 사용하세요.');
-      return;
-    }
-
-    if(!recognition){
-      recognition = initRecognition();
-      if(!recognition) return;
-
-      recognition.onstart = ()=>{
-        recognizing = true;
-        statusEl.textContent = '상태: 녹음 중 — 말하세요';
-        startBtn.disabled = true;
-      };
-
-      recognition.onerror = (e)=>{
-        console.error('Speech recognition error', e);
-        statusEl.textContent = '상태: 에러 — ' + (e.error || 'unknown');
-      };
-
-      recognition.onend = ()=>{
-        recognizing = false;
-        recognition = null; // 재초기화를 위해 null 처리
-        statusEl.textContent = '상태: 중지됨';
-        startBtn.disabled = false;
-      };
-
-      recognition.onresult = (event)=>{
-        let interim = '';
-        for(let i = event.resultIndex; i < event.results.length; ++i){
-          const result = event.results[i];
-          if(result.isFinal){
-            finalTranscript += result[0].transcript;
-          } else {
-            interim += result[0].transcript;
-          }
-        }
-        if(interimCheckbox.checked){
-          transcriptEl.textContent = finalTranscript + '\n' + interim;
-        } else {
-          transcriptEl.textContent = finalTranscript;
-        }
-        transcriptEl.scrollTop = transcriptEl.scrollHeight;
-      };
-    }
-
-    // 선택된 언어와 interim 설정 적용
-    recognition.lang = langSel.value;
-    recognition.interimResults = interimCheckbox.checked;
-
-    try{
-      recognition.start();
-    }catch(e){
-      // 이미 시작된 상태에서 start() 호출시 예외 발생 가능 — 무시
-      console.warn(e);
-    }
-  }
-
-  function stopRecognition(){
-    if(recognition){
-      try{ recognition.stop(); }catch(e){}
-    } else {
-      statusEl.textContent = '상태: 중지되어 있습니다.';
-    }
-  }
-
-  function clearTranscript(){
-    finalTranscript = '';
-    transcriptEl.textContent = '(여기에 실시간 자막이 표시됩니다)';
-  }
-
-  function downloadTranscript(){
-    const text = finalTranscript || transcriptEl.textContent || '';
-    const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'transcript.txt';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  // 버튼 이벤트
-  startBtn.addEventListener('click', ()=>{
-    // 마이크 권한 요청은 recognition.start()가 트리거할 때 브라우저가 처리
-    startRecognition();
-  });
-  stopBtn.addEventListener('click', ()=>{
-    stopRecognition();
-  });
-  clearBtn.addEventListener('click', ()=>{
-    clearTranscript();
-  });
-  downloadBtn.addEventListener('click', ()=>{
-    downloadTranscript();
-  });
-
-  // 언어 변경 시 재시작 안내
-  langSel.addEventListener('change', ()=>{
-    if(recognition){
-      stopRecognition();
-      setTimeout(()=>{
-        startRecognition();
-      }, 300);
-    }
-  });
-  interimCheckbox.addEventListener('change', ()=>{
-    if(recognition){
-      recognition.interimResults = interimCheckbox.checked;
-    }
-  });
-
-  // 페이지 언로드시 recognition 정리
-  window.addEventListener('beforeunload', ()=>{
-    if(recognition) try{ recognition.stop(); }catch(e){}
-  });
-
-})();
-</script>
+  
+      fetch("https://formspree.io/f/xanegwav", {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          yourName: yourName,
+          crushName: crushName,
+          message: `${yourName}가 ${crushName}를 좋아해요! 성공 확률: ${percent}%`
+        })
+      });
+    });
+  </script>
 </body>
 </html>
